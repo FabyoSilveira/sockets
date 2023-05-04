@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 #define BUFFER_SIZE 1024
 
@@ -18,6 +21,32 @@ int main(int argc, char *argv[]){
   printf("Client running!\n");
   printf("Endereço IP: %s\n", argv[1]);
   printf("Porta de conexão: %s\n", argv[2]);
+
+  int sock;
+  struct sockaddr_in servAddr;
+
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    printf("Criação do socket falhou!\n");
+    return 0;
+  }
+  
+  memset(&servAddr, '0', sizeof(servAddr));
+  servAddr.sin_family = AF_INET;
+  servAddr.sin_port = htons(port);
+
+  if (inet_pton(AF_INET, ip, &servAddr.sin_addr) <= 0) {
+    printf("Endereço não suportado\n");
+    return 0;
+  }
+
+  printf("Endereço válido mapeado para servAddr\n");
+
+  if (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)) < 0) {
+    printf("Connection Failed\n");
+    return 0;
+  }
+
+  printf("Conectado com sucesso ao server %s porta %d\n", ip, port);
 
   do{
     fgets(buffer, sizeof(buffer), stdin);

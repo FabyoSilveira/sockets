@@ -9,6 +9,7 @@
 
 int main(int argc, char *argv[]){
   char buffer[BUFFER_SIZE]; 
+  
   char *ipVersion = argv[1];
   int port = atoi(argv[2]);
 
@@ -49,6 +50,14 @@ int main(int argc, char *argv[]){
   }
 
   printf("Socket server ouvindo a porta: %d\n", port);
+
+  // Aceita a conexão do cliente
+  if ((newSock = accept(sockfd, (struct sockaddr *) &cliAddr, &cliLen)) < 0) {
+    printf("Accept client connection!");
+    return 0;
+  }
+
+  printf("Client connected!");
 
   do{
     scanf("%s", buffer);
