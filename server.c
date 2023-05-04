@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -53,15 +54,37 @@ int main(int argc, char *argv[]){
 
   // Aceita a conexão do cliente
   if ((newSock = accept(sockfd, (struct sockaddr *) &cliAddr, &cliLen)) < 0) {
-    printf("Accept client connection!");
+    printf("Accept client connection failed!\n");
     return 0;
   }
 
-  printf("Client connected!");
+  printf("Client connected!\n");
 
-  do{
-    scanf("%s", buffer);
-  }while(strcmp(buffer, "exit") != 0);
-  
-  return 0;
+  int recvReturn;
+
+  while(1){
+    memset(buffer, 0, sizeof(buffer));
+    recvReturn = recv(newSock, buffer, sizeof(buffer), 0);
+
+    if(recvReturn < 0){
+      printf("Erro ao executar recv do client\n");
+      return 0;
+    }
+    
+    printf("Buffer received: %s\n", buffer);
+
+    if(strcmp(buffer, "exit") == 0){
+      //Fecha os sockets e printa a mensagem no servidor
+      if(close(sockfd) == -1){
+        printf("Erro ao fechar o socket do servidor!\n");
+      }
+      
+      if(close(newSock) == -1){
+        printf("Erro ao fechar o socket do cliente!\n");
+      }
+
+      printf("connection closed\n");
+      return 0;
+    }
+  }
 }

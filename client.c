@@ -17,6 +17,7 @@ int main(int argc, char *argv[]){
 
   FILE *file; 
   bool selectedFile = false;
+  char *fileName;
 
   printf("Client running!\n");
   printf("Endereço IP: %s\n", argv[1]);
@@ -48,14 +49,14 @@ int main(int argc, char *argv[]){
 
   printf("Conectado com sucesso ao server %s porta %d\n", ip, port);
 
-  do{
+  while(1){
     fgets(buffer, sizeof(buffer), stdin);
     //Limpa o '\n' da string
     buffer[strcspn(buffer, "\n")] = '\0'; 
 
     if(strstr(buffer, "select file") != NULL){
       char *fileExtension = strrchr(buffer, '.');
-      char *fileName = strrchr(buffer, ' ');
+      fileName = strrchr(buffer, ' ');
       bool validFile = false;
 
       //Não faz nada caso o comando não possua um arquivo como parâmetro
@@ -93,11 +94,29 @@ int main(int argc, char *argv[]){
         continue;
       }
 
-      printf("Send file implementation!\n");
-      //send file     
+      printf("Send message file: %s\n", fileName);
+      //send file  
+      if (send(sock, fileName, sizeof(fileName), 0) == -1){
+        printf("Send message failed");
+        return 0;
+      }   
+
+      printf("Send succesfully!");
+    }else if(strcmp(buffer, "exit") == 0){
+           
+      if (send(sock, buffer, sizeof(buffer), 0) == -1){
+        printf("Send message failed");
+        return 0;
+      } 
+
+      if(close(sock) == -1){
+        printf("Erro ao fechar o socket");
+      }
+
+      break;
     }
 
-  }while(strcmp(buffer, "exit") != 0);
-  
+  } 
+
   return 0;
 }
