@@ -54,11 +54,11 @@ int main(int argc, char *argv[]){
 
   // Aceita a conexão do cliente
   if ((newSock = accept(sockfd, (struct sockaddr *) &cliAddr, &cliLen)) < 0) {
-    printf("Accept client connection failed!\n");
+    printf("Accept conexão do cliente falhou!\n");
     return 0;
   }
 
-  printf("Client connected!\n");
+  printf("Cliente conectado!\n");
 
   int recvReturn;
 
@@ -70,15 +70,13 @@ int main(int argc, char *argv[]){
       printf("Erro ao executar recv do client\n");
       return 0;
     }
-    
-    printf("Buffer received: %s\n", buffer);
 
     if(strcmp(buffer, "exit") == 0){
       //Fecha os sockets e printa a mensagem no servidor
       if(close(sockfd) == -1){
         printf("Erro ao fechar o socket do servidor!\n");
       }
-      
+
       if(close(newSock) == -1){
         printf("Erro ao fechar o socket do cliente!\n");
       }
@@ -86,5 +84,7 @@ int main(int argc, char *argv[]){
       printf("connection closed\n");
       return 0;
     }
+    
+    printf("Buffer recebido do cliente: %s\n", buffer);
   }
 }
