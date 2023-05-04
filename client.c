@@ -3,12 +3,15 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define MAX_COMMAND 256
+#define BUFFER_SIZE 1024
 
 char validFiles[6][6] = {".txt", ".c", ".cpp", ".py", ".tex", ".java"};
 
 int main(int argc, char *argv[]){
-  char command[30];
+  char buffer[BUFFER_SIZE];
+  char *ip = argv[1];
+  int port = atoi(argv[2]);
+
   FILE *file; 
   bool selectedFile = false;
 
@@ -17,13 +20,13 @@ int main(int argc, char *argv[]){
   printf("Porta de conexão: %s\n", argv[2]);
 
   do{
-    fgets(command, MAX_COMMAND, stdin);
+    fgets(buffer, sizeof(buffer), stdin);
     //Limpa o '\n' da string
-    command[strcspn(command, "\n")] = '\0'; 
+    buffer[strcspn(buffer, "\n")] = '\0'; 
 
-    if(strstr(command, "select file") != NULL){
-      char *fileExtension = strrchr(command, '.');
-      char *fileName = strrchr(command, ' ');
+    if(strstr(buffer, "select file") != NULL){
+      char *fileExtension = strrchr(buffer, '.');
+      char *fileName = strrchr(buffer, ' ');
       bool validFile = false;
 
       //Não faz nada caso o comando não possua um arquivo como parâmetro
@@ -54,7 +57,7 @@ int main(int argc, char *argv[]){
         printf("%s selected!\n", fileName);
         selectedFile = true;
       }
-    }else if(strcmp(command, "send file") == 0){
+    }else if(strcmp(buffer, "send file") == 0){
       
       if(!selectedFile){
         printf("no file selected!\n");
@@ -65,7 +68,7 @@ int main(int argc, char *argv[]){
       //send file     
     }
 
-  }while(strcmp(command, "exit") != 0);
+  }while(strcmp(buffer, "exit") != 0);
   
   return 0;
 }
