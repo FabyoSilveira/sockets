@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 
 #define BUFFER_SIZE 1024
+#define FILE_BUFFER 495
 
 char validFiles[6][6] = {".txt", ".c", ".cpp", ".py", ".tex", ".java"};
 
@@ -73,12 +74,38 @@ int createAndConnectSockToServerIPV4orIPV6(char* ip, int port){
   return sock;
 }
 
+int sendMessage(int cliSock, FILE *file, char *fileName){
+  char fileBuffer[FILE_BUFFER];
+  char *finalMessage = (char*)malloc(strlen(fileName) * sizeof(char));
+  size_t bytesRead;
+
+  while ((bytesRead = fread(fileBuffer, 1, FILE_BUFFER, file)) > 0) {
+    //Build the message format to be sent to server   
+    memcpy(finalMessage, fileName, strlen(fileName));
+    strcat(finalMessage, " ");
+    strcat(finalMessage, fileBuffer);
+
+    if (send(cliSock, finalMessage, (int)strlen(finalMessage), 0) == -1) {
+      printf("Failed to send data\n");
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+void closeSocket(int sock){
+  if(close(sock) == -1){
+    printf("Erro ao fechar o socket\n");
+  }
+}
+
 int main(int argc, char *argv[]){
   char buffer[BUFFER_SIZE];
   char *ip = argv[1];
   int port = atoi(argv[2]);
 
-  FILE *file; 
+  FILE *file = NULL; 
   bool selectedFile = false;
   char *fileName;
 
@@ -96,17 +123,20 @@ int main(int argc, char *argv[]){
 
   while(1){
     fgets(buffer, sizeof(buffer), stdin);
-    //Limpa o '\n' da string
+    //Clear string \n
     buffer[strcspn(buffer, "\n")] = '\0'; 
 
     if(strstr(buffer, "select file") != NULL){
+      //reset pointer to null to avoid reference bugs
+      fileName = NULL;
+
       char *fileExtension = strrchr(buffer, '.');
       fileName = strrchr(buffer, ' ');
       bool validFile = false;
 
-      //Não faz nada caso o comando não possua um arquivo como parâmetro
+      //Do nothing if a file is not given as parameter
       if(fileName != NULL && fileExtension != NULL){
-        //retira o espaço em branco do nome do arquivo
+        //Remove white space
         fileName++;
         
         //Check if file extension is valid
@@ -121,10 +151,16 @@ int main(int argc, char *argv[]){
           continue;
         }
 
+        //If a file is already opened, close it to avoid bugs
+        if(file != NULL){
+          fclose(file);
+        }
+        
         //Tenta selecionar o arquivo
         file = fopen(fileName, "rb");
         if(file == NULL){
           printf("%s do not exist\n", fileName);
+          selectedFile = false;
           continue;
         }
 
@@ -139,12 +175,13 @@ int main(int argc, char *argv[]){
         continue;
       }
 
+      int sendMessageFlag;
       printf("Send message file: %s\n", fileName);
-      //send file  
-      if (send(sock, fileName, sizeof(fileName), 0) == -1){
-        printf("Send message failed\n");
+
+      //send file 
+      if((sendMessageFlag = sendMessage(sock, file, fileName)) == 0){
         return 0;
-      }   
+      }
 
       printf("Send succesfully!\n");
     }else if(strcmp(buffer, "exit") == 0){
@@ -152,16 +189,15 @@ int main(int argc, char *argv[]){
       if (send(sock, buffer, sizeof(buffer), 0) == -1){
         printf("Send message failed\n");
         return 0;
-      } 
-
-      if(close(sock) == -1){
-        printf("Erro ao fechar o socket\n");
       }
 
+      closeSocket(sock);
       break;
-    }
 
-  } 
-
+    }else{ 
+      closeSocket(sock);
+      break;
+    } 
+  }
   return 0;
 }

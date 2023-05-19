@@ -6,13 +6,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 500
 
 int createAndConfigureSocketIPV4(int port){
   int sockfd;
   struct sockaddr_in servAddr;
 
-  // Cria o socket
+  //Create the server socket
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     printf("Criação do socket falhou!\n");
     return -1;
@@ -20,13 +20,13 @@ int createAndConfigureSocketIPV4(int port){
 
   printf("Socket criado com sucesso!\n");
 
-  // Configura a estrutura do endereço do servidor
+  //Config server addr structure
   memset(&servAddr, 0, sizeof(servAddr));
   servAddr.sin_family = AF_INET;
   servAddr.sin_addr.s_addr = INADDR_ANY;
   servAddr.sin_port = htons(port);
 
-  // Associa o socket a um endereço e porta
+  //Associate a socket to a port and address
   if (bind(sockfd, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
     printf("Bind do socket à porta e endereço falhou\n");
     return -1;
@@ -34,7 +34,7 @@ int createAndConfigureSocketIPV4(int port){
 
   printf("Socket associado a porta e endereço com sucesso!\n");
 
-  // Aguarda a conexão de um cliente
+  ///Wait for a client to connect
   if (listen(sockfd, 1) < 0) {
     printf("Listen do socket falhou!\n");
     return -1;
@@ -65,7 +65,7 @@ int createAndConfigureSocketIPV6(int port){
   int sockfd;
   struct sockaddr_in6 servAddr;
 
-  // Cria o socket
+  //Create the server socket
   if ((sockfd = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
     printf("Criação do socket falhou!\n");
     return -1;
@@ -73,13 +73,13 @@ int createAndConfigureSocketIPV6(int port){
 
   printf("Socket criado com sucesso!\n");
 
-  // Configura a estrutura do endereço do servidor
+  //Config server addr structure
   memset(&servAddr, 0, sizeof(servAddr));
   servAddr.sin6_family = AF_INET6;
   servAddr.sin6_addr = in6addr_any;
   servAddr.sin6_port = htons(port);
 
-  // Associa o socket a um endereço e porta
+  //Associate a socket to a port and address
   if (bind(sockfd, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
     printf("Bind do socket à porta e endereço falhou\n");
     return -1;
@@ -87,7 +87,7 @@ int createAndConfigureSocketIPV6(int port){
 
   printf("Socket associado a porta e endereço com sucesso!\n");
 
-  // Aguarda a conexão de um cliente
+  //Wait for a client to connect
   if (listen(sockfd, 1) < 0) {
     printf("Listen do socket falhou!\n");
     return -1;
@@ -103,7 +103,7 @@ int receiveClientConnectionIPV6(int serverSock){
   struct sockaddr_in6 cliAddr;
   socklen_t cliLen = sizeof(cliAddr);
 
-  // Aceita a conexão do cliente
+  //Accept client connection
   if ((newSock = accept(serverSock, (struct sockaddr *) &cliAddr, &cliLen)) < 0) {
     printf("Accept conexão do cliente falhou!\n");
     return -1;
@@ -112,6 +112,52 @@ int receiveClientConnectionIPV6(int serverSock){
   printf("Cliente conectado!\n");
 
   return newSock;
+}
+
+void closeSockets(int serverSock, int cliSock){
+  if(close(serverSock) == -1){
+    printf("Erro ao fechar o socket do servidor!\n");
+  }
+
+  if(close(cliSock) == -1){
+    printf("Erro ao fechar o socket do cliente!\n");
+  }
+
+  printf("connection closed\n");
+}
+
+void writeToFile(char *fileName, char *fileContent) {
+  FILE *file;
+  char *fullPath;
+  char *serverFolderPath = "./serverFiles/";
+  bool isOverwrite = true;
+
+  //Build full path size
+  size_t fullPathLength = strlen(serverFolderPath) + strlen(fileName) + 1;
+  fullPath = (char*)malloc(fullPathLength);
+
+  //Build path of file to be written
+  strcat(fullPath, serverFolderPath);
+  strcat(fullPath, fileName);
+  
+  //See if file already exist
+  file = fopen(fullPath, "rb");
+  if(file == NULL){
+    isOverwrite = false;
+  }
+
+  file = fopen(fullPath, "wb");
+
+  size_t contentLength = strlen(fileContent);
+  size_t bytesWritten = fwrite(fileContent, 1, contentLength, file);
+
+  if(isOverwrite){  
+    printf("file %s overwritten\n", fileName);
+  }else{
+    printf("file %s received\n", fileName);
+  }
+
+  fclose(file);
 }
 
 int main(int argc, char *argv[]){
@@ -155,26 +201,22 @@ int main(int argc, char *argv[]){
   while(1){
     memset(buffer, 0, sizeof(buffer));
     recvReturn = recv(cliSock, buffer, sizeof(buffer), 0);
-
+    
     if(recvReturn < 0){
       printf("Erro ao executar recv do client\n");
       return 0;
     }
 
+    //Retrieve the file name and its content
+    char *fileName = strtok(buffer, " ");
+    char *fileContent = strtok(NULL, "");
+
+    writeToFile(fileName, fileContent);
+
     if(strcmp(buffer, "exit") == 0){
-      //Fecha os sockets e printa a mensagem no servidor
-      if(close(sockfd) == -1){
-        printf("Erro ao fechar o socket do servidor!\n");
-      }
-
-      if(close(cliSock) == -1){
-        printf("Erro ao fechar o socket do cliente!\n");
-      }
-
-      printf("connection closed\n");
+      //Close all sockets
+      closeSockets(sockfd, cliSock);
       return 0;
     }
-    
-    printf("Buffer recebido do cliente: %s\n", buffer);
   }
 }
