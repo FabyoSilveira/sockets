@@ -18,7 +18,6 @@ int createAndConnectSockToServerIPV4orIPV6(char* ip, int port){
 
   //IPV4
   if(inet_pton(AF_INET, ip, &servAddrV4.sin_addr) == 1){
-    printf("Versão IP: IPV4\n");
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       printf("Criação do socket falhou!\n");
@@ -34,8 +33,6 @@ int createAndConnectSockToServerIPV4orIPV6(char* ip, int port){
       return -1;
     }
 
-    printf("Endereço válido mapeado para servAddr4\n");
-
     if (connect(sock, (struct sockaddr *)&servAddrV4, sizeof(servAddrV4)) < 0) {
       printf("Connection Failed\n");
       return -1;
@@ -45,7 +42,6 @@ int createAndConnectSockToServerIPV4orIPV6(char* ip, int port){
 
   //IPV6
   }else if(inet_pton(AF_INET6, ip, &servAddrV6.sin6_addr) == 1){
-    printf("Versão IP: IPV6\n");
 
     if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
       printf("Criação do socket falhou!\n");
@@ -61,8 +57,6 @@ int createAndConnectSockToServerIPV4orIPV6(char* ip, int port){
       return -1;
     }
 
-    printf("Endereço válido mapeado para servAddr6\n");
-
     if (connect(sock, (struct sockaddr *)&servAddrV6, sizeof(servAddrV6)) < 0) {
       printf("Connection Failed\n");
       return -1;
@@ -75,22 +69,32 @@ int createAndConnectSockToServerIPV4orIPV6(char* ip, int port){
 }
 
 int sendMessage(int cliSock, FILE *file, char *fileName){
-  char fileBuffer[FILE_BUFFER];
+  char fileBuffer[FILE_BUFFER+1];
   char *finalMessage = (char*)malloc(strlen(fileName) * sizeof(char));
   size_t bytesRead;
+
+  //Clear memory of fileBuffer to avoid missreading
+  memset(fileBuffer, 0, sizeof(fileBuffer));
 
   while ((bytesRead = fread(fileBuffer, 1, FILE_BUFFER, file)) > 0) {
     //Build the message format to be sent to server   
     memcpy(finalMessage, fileName, strlen(fileName));
     strcat(finalMessage, " ");
     strcat(finalMessage, fileBuffer);
-
+    
     if (send(cliSock, finalMessage, (int)strlen(finalMessage), 0) == -1) {
       printf("Failed to send data\n");
       return 0;
     }
   }
 
+  //Reset file pointer to the beggining, to allow just resent the file as in TP description
+  //without having to select it again
+  fseek(file, 0, SEEK_SET);
+
+  //Free dynamic allocated memory for the finalMessage
+  free(finalMessage);
+  
   return 1;
 }
 
@@ -102,6 +106,7 @@ void closeSocket(int sock){
 
 int main(int argc, char *argv[]){
   char buffer[BUFFER_SIZE];
+  char serverResponseBuffer[BUFFER_SIZE];
   char *ip = argv[1];
   int port = atoi(argv[2]);
 
@@ -133,7 +138,7 @@ int main(int argc, char *argv[]){
       char *fileExtension = strrchr(buffer, '.');
       fileName = strrchr(buffer, ' ');
       bool validFile = false;
-
+      
       //Do nothing if a file is not given as parameter
       if(fileName != NULL && fileExtension != NULL){
         //Remove white space
@@ -150,12 +155,7 @@ int main(int argc, char *argv[]){
           printf("%s not valid!\n", fileName);
           continue;
         }
-
-        //If a file is already opened, close it to avoid bugs
-        if(file != NULL){
-          fclose(file);
-        }
-        
+        file = NULL;
         //Tenta selecionar o arquivo
         file = fopen(fileName, "rb");
         if(file == NULL){
@@ -176,20 +176,28 @@ int main(int argc, char *argv[]){
       }
 
       int sendMessageFlag;
-      printf("Send message file: %s\n", fileName);
-
       //send file 
       if((sendMessageFlag = sendMessage(sock, file, fileName)) == 0){
         return 0;
       }
 
-      printf("Send succesfully!\n");
+      //Receive response from server
+      memset(serverResponseBuffer, 0, sizeof(serverResponseBuffer));
+      recv(sock, serverResponseBuffer, sizeof(serverResponseBuffer), 0);
+
+      printf("%s\n", serverResponseBuffer);
     }else if(strcmp(buffer, "exit") == 0){
            
       if (send(sock, buffer, sizeof(buffer), 0) == -1){
         printf("Send message failed\n");
         return 0;
       }
+
+      //Receive response from server
+      memset(serverResponseBuffer, 0, sizeof(serverResponseBuffer));
+      recv(sock, serverResponseBuffer, sizeof(serverResponseBuffer), 0);
+
+      printf("%s\n", serverResponseBuffer);
 
       closeSocket(sock);
       break;

@@ -115,6 +115,13 @@ int receiveClientConnectionIPV6(int serverSock){
 }
 
 void closeSockets(int serverSock, int cliSock){
+  char *serverResponse = "connection closed";
+
+  //Response for client
+  if (send(cliSock, serverResponse, strlen(serverResponse), 0) == -1){
+    printf("Send message failed\n");
+  }
+
   if(close(serverSock) == -1){
     printf("Erro ao fechar o socket do servidor!\n");
   }
@@ -122,16 +129,14 @@ void closeSockets(int serverSock, int cliSock){
   if(close(cliSock) == -1){
     printf("Erro ao fechar o socket do cliente!\n");
   }
-
-  printf("connection closed\n");
 }
 
-void writeToFile(char *fileName, char *fileContent) {
+void writeToFile(int cliSock, char *fileName, char *fileContent) {
   FILE *file;
   char *fullPath;
   char *serverFolderPath = "./serverFiles/";
   bool isOverwrite = true;
-
+  
   //Build full path size
   size_t fullPathLength = strlen(serverFolderPath) + strlen(fileName) + 1;
   fullPath = (char*)malloc(fullPathLength);
@@ -139,24 +144,43 @@ void writeToFile(char *fileName, char *fileContent) {
   //Build path of file to be written
   strcat(fullPath, serverFolderPath);
   strcat(fullPath, fileName);
-  
+
   //See if file already exist
   file = fopen(fullPath, "rb");
   if(file == NULL){
     isOverwrite = false;
   }
-
+  
   file = fopen(fullPath, "wb");
 
   size_t contentLength = strlen(fileContent);
   size_t bytesWritten = fwrite(fileContent, 1, contentLength, file);
 
+  //Server response
+  char serverResponse[BUFFER_SIZE];
+
+  memset(serverResponse, 0, sizeof(serverResponse));
   if(isOverwrite){  
-    printf("file %s overwritten\n", fileName);
+    strcat(serverResponse, "file ");
+    strcat(serverResponse, fileName);
+    strcat(serverResponse, " overwritten");
+
+    //Send
+    if (send(cliSock, serverResponse, strlen(serverResponse), 0) == -1){
+      printf("Send message failed\n");
+    }
   }else{
-    printf("file %s received\n", fileName);
+    strcat(serverResponse, "file ");
+    strcat(serverResponse, fileName);
+    strcat(serverResponse, " received");
+
+    //Send
+    if (send(cliSock, serverResponse, strlen(serverResponse), 0) == -1){
+      printf("Send message failed\n");
+    }
   }
 
+  free(fullPath);
   fclose(file);
 }
 
@@ -182,6 +206,8 @@ int main(int argc, char *argv[]){
     if((cliSock = receiveClientConnectionIPV4(sockfd)) < 0){
       return 0;
     }
+
+    printf("IPV4 configurado com sucesso!\n");
   }else if(strcmp(ipVersion, "v6") == 0){
     printf("Configurando conexão IPV6!\n");
 
@@ -192,6 +218,8 @@ int main(int argc, char *argv[]){
     if((cliSock = receiveClientConnectionIPV6(sockfd)) < 0){
       return 0;
     }
+
+    printf("IPV6 configurado com sucesso!\n");
   }else{
     printf("Versão ip recebida inválida!\n");
   }
@@ -207,16 +235,19 @@ int main(int argc, char *argv[]){
       return 0;
     }
 
-    //Retrieve the file name and its content
-    char *fileName = strtok(buffer, " ");
-    char *fileContent = strtok(NULL, "");
-
-    writeToFile(fileName, fileContent);
+    //Print on the default exit the message received from client
+    printf("Mensagem recebida do cliente: %s\n", buffer);
 
     if(strcmp(buffer, "exit") == 0){
       //Close all sockets
       closeSockets(sockfd, cliSock);
       return 0;
     }
+
+    //Retrieve the file name and its content
+    char *fileName = strtok(buffer, " ");
+    char *fileContent = strtok(NULL, "");
+
+    writeToFile(cliSock, fileName, fileContent);
   }
 }
