@@ -76,7 +76,13 @@ int sendMessage(int cliSock, FILE *file, char *fileName){
   //Clear memory of fileBuffer to avoid missreading
   memset(fileBuffer, 0, sizeof(fileBuffer));
 
-  while ((bytesRead = fread(fileBuffer, 1, FILE_BUFFER, file)) > 0) {
+  //Move pointer to end of file to check if its empty
+  fseek(file, 0, SEEK_END);
+
+  long fileSize = ftell(file);
+
+  //If file is empty send it anyway
+  if (fileSize == 0) {
     //Build the message format to be sent to server   
     memcpy(finalMessage, fileName, strlen(fileName));
     strcat(finalMessage, " ");
@@ -85,6 +91,21 @@ int sendMessage(int cliSock, FILE *file, char *fileName){
     if (send(cliSock, finalMessage, (int)strlen(finalMessage), 0) == -1) {
       printf("Failed to send data\n");
       return 0;
+    }
+  }else{
+    //Since file is not empty retrieve the pointer to the beggining
+    fseek(file, 0, SEEK_SET);
+
+    while ((bytesRead = fread(fileBuffer, 1, FILE_BUFFER, file)) > 0) {   
+      //Build the message format to be sent to server   
+      memcpy(finalMessage, fileName, strlen(fileName));
+      strcat(finalMessage, " ");
+      strcat(finalMessage, fileBuffer);
+      
+      if (send(cliSock, finalMessage, (int)strlen(finalMessage), 0) == -1) {
+        printf("Failed to send data\n");
+        return 0;
+      }
     }
   }
 
@@ -118,8 +139,7 @@ int main(int argc, char *argv[]){
   printf("Endereço IP: %s\n", argv[1]);
   printf("Porta de conexão: %s\n", argv[2]);
 
-  int sock; 
-  struct sockaddr_in servAddrV4;
+  int sock;
 
   //Create and connect sock to server
   if((sock = createAndConnectSockToServerIPV4orIPV6(ip, port)) < 0){
@@ -159,7 +179,7 @@ int main(int argc, char *argv[]){
         //Tenta selecionar o arquivo
         file = fopen(fileName, "rb");
         if(file == NULL){
-          printf("%s do not exist\n", fileName);
+          printf("%s does not exist\n", fileName);
           selectedFile = false;
           continue;
         }

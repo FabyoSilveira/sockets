@@ -153,9 +153,12 @@ void writeToFile(int cliSock, char *fileName, char *fileContent) {
   
   file = fopen(fullPath, "wb");
 
-  size_t contentLength = strlen(fileContent);
-  size_t bytesWritten = fwrite(fileContent, 1, contentLength, file);
-
+  //In case of blank file
+  if(fileContent != NULL){
+    size_t contentLength = strlen(fileContent);
+    size_t bytesWritten = fwrite(fileContent, 1, contentLength, file);
+  }
+  
   //Server response
   char serverResponse[BUFFER_SIZE];
 
